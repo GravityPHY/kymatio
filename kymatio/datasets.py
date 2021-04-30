@@ -137,7 +137,7 @@ def fetch_fsdd(verbose=False):
     return dictionary
 
 
-atom_charges=dict(H=1, C=6, O=8, N=7, S=16)
+atom_charges=dict(H=1, C=6, O=8, N=7, S=16, Cl=35.5)
 
 def read_xyz(filename):
     """Reads xyz files that are used for storing molecule configurations.
@@ -254,3 +254,44 @@ def fetch_qm7(align=True, cache=True):
             np.savez(aligned_filename, **qm7)
 
     return qm7
+
+
+qm7b_url= "https://qmml.org/Datasets/gdb7-13.zip"
+def fetch_qm7b(align=True, cache=True):
+    """Fetches the GDB7-13 dataset"""
+    if cache:
+        cache_path = get_cache_dir("qm7b")
+        if align:
+            aligned_filename = os.path.join(cache_path, "qm7b_aligned.npz")
+            if os.path.exists(aligned_filename):
+                f = np.load(aligned_filename)
+                return dict(**f)
+
+        # load unaligned if existent, align if required
+        unaligned_filename = os.path.join(cache_path, "qm7b.npz")
+        if os.path.exists(unaligned_filename):
+            f = np.load(unaligned_filename)
+            if align:
+                _pca_align_positions(f['positions'], f['charges'], inplace=True)
+                np.savez(aligned_filename, **f)
+            return dict(**f)
+
+    path = get_dataset_dir("qm7b")
+    qm7b_file = os.path.join(path, "dsgdb7njp.xyz")
+    if not os.path.exists(qm7b_file):
+        qm7b_zipfile = os.path.join(path, "gdb7-13.zip")
+        if not os.path.exists(qm7b_zipfile):
+            _download(qm7b_url, qm7b_zipfile)
+            import zipfile
+            with zipfile.ZipFile(qm7b_zipfile, "r") as zipref:
+                zipref.extractall(path)
+
+    qm7b = read_xyz(qm7b_file)
+    if cache:
+        np.savez(unaligned_filename, **qm7b)
+
+    if align:
+        _pca_align_positions(qm7b['positions'], qm7b['charges'], inplace=True)
+        if cache:
+            np.savez(aligned_filename, **qm7b)
+    return qm7b
